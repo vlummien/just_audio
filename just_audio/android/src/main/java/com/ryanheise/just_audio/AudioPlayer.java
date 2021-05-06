@@ -5,7 +5,6 @@ import android.net.Uri;
 import android.os.Handler;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.ExoPlaybackException;
-import com.google.android.exoplayer2.MediaItem;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.SimpleExoPlayer;
@@ -32,7 +31,6 @@ import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
-import com.google.android.exoplayer2.util.MimeTypes;
 import com.google.android.exoplayer2.util.Util;
 import io.flutter.Log;
 import io.flutter.plugin.common.BinaryMessenger;
@@ -135,7 +133,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
     }
 
     @Override
-    public void onAudioSessionIdChanged(int audioSessionId) {
+    public void onAudioSessionId(int audioSessionId) {
         if (audioSessionId == C.AUDIO_SESSION_ID_UNSET) {
             this.audioSessionId = null;
         } else {
@@ -206,7 +204,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
     }
 
     @Override
-    public void onPlaybackStateChanged(int playbackState) {
+    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
         switch (playbackState) {
         case Player.STATE_READY:
             if (prepareResult != null) {
@@ -270,8 +268,8 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
             // This condition is due to: https://github.com/ryanheise/just_audio/pull/310
             if (nextIndex < timeline.getWindowCount()) {
                 // TODO: pass in initial position here.
-                player.setMediaSource(mediaSource);
-                player.prepare();
+                // player.setMediaSource(mediaSource);
+                player.prepare(mediaSource);
                 player.seekTo(nextIndex, 0);
             }
         }
@@ -441,23 +439,16 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
         switch ((String)map.get("type")) {
         case "progressive":
             return new ProgressiveMediaSource.Factory(buildDataSourceFactory())
-                    .createMediaSource(new MediaItem.Builder()
-                            .setUri(Uri.parse((String)map.get("uri")))
-                            .setTag(id)
-                            .build());
+                    .setTag(id)
+                    .createMediaSource(Uri.parse((String)map.get("uri")));
         case "dash":
             return new DashMediaSource.Factory(buildDataSourceFactory())
-                    .createMediaSource(new MediaItem.Builder()
-                            .setUri(Uri.parse((String)map.get("uri")))
-                            .setMimeType(MimeTypes.APPLICATION_MPD)
-                            .setTag(id)
-                            .build());
+                    .setTag(id)
+                    .createMediaSource(Uri.parse((String)map.get("uri")));
         case "hls":
             return new HlsMediaSource.Factory(buildDataSourceFactory())
-                    .createMediaSource(new MediaItem.Builder()
-                            .setUri(Uri.parse((String)map.get("uri")))
-                            .setMimeType(MimeTypes.APPLICATION_M3U8)
-                            .build());
+                    .setTag(id)
+                    .createMediaSource(Uri.parse((String)map.get("uri")));
         case "concatenating":
             MediaSource[] mediaSources = getAudioSourcesArray(map.get("children"));
             return new ConcatenatingMediaSource(
@@ -528,14 +519,14 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
         transition(ProcessingState.loading);
         this.mediaSource = mediaSource;
         // TODO: pass in initial position here.
-        player.setMediaSource(mediaSource);
-        player.prepare();
+        // player.setMediaSource(mediaSource);
+        player.prepare(mediaSource);
     }
 
     private void ensurePlayerInitialized() {
         if (player == null) {
             player = new SimpleExoPlayer.Builder(context).build();
-            onAudioSessionIdChanged(player.getAudioSessionId());
+            onAudioSessionId(player.getAudioSessionId());
             player.addMetadataOutput(this);
             player.addListener(this);
             player.addAudioListener(this);
